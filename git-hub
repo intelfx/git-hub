@@ -786,23 +786,22 @@ class SetupForkCmd (object):
 
     cmd_name = "setup-fork"
     cmd_required_config = ['username', 'oauthtoken']
-    cmd_help = 'fork a GitHub repository'
+    cmd_help = 'setup an already cloned GitHub repository (and fork as needed)'
     cmd_usage = '%(prog)s [OPTIONS] [REPO]'
 
     @classmethod
     def setup_parser(cls, parser):
         parser.add_argument('repository', metavar='REPO', nargs='?',
-                help="name of the repository to fork; in "
-                "<owner>/<project> format is the upstream repository, "
-                "if only <project> is specified, the <owner> part is "
-                "taken from hub.username")
+                help="explicitly specify the name of the repository to fork "
+                "(in <owner>/<project> format, or just <project> to use "
+                "hub.username), normally not needed if any remotes exist")
         parser.add_argument('-U', '--upstreamremote', metavar='NAME',
                 default=config.upstreamremote,
-                help="use NAME as the upstream remote repository name "
+                help="use NAME as the upstream remote name "
                 "instead of the default '{}'".format(config.upstreamremote))
         parser.add_argument('-F', '--forkremote', metavar='NAME',
                 default=config.forkremote,
-                help="use NAME as the fork remote repository name "
+                help="use NAME as the fork remote name "
                 "instead of the default '{}'".format(config.forkremote))
         parser.add_argument('-t', '--triangular', action="store_true",
                 default=None,
