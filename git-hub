@@ -821,7 +821,10 @@ class SetupForkCmd (object):
             git_remotes = git('remote', 'show', '-n').split('\n')
             remote = args.upstreamremote
             if remote not in git_remotes:
-                die("No REPO specified, nor does `{}` remote exist", remote)
+                if len(git_remotes) == 1:
+                    git('remote', 'rename', '--', git_remotes[0], remote)
+                else:
+                    die("No REPO specified, nor does `{}` remote exist", remote)
             git_url = git('remote', 'get-url', '--', remote)
             (urltype, proj) = cls.parse_repo(git_url)
         (repo, upstream, forked) = cls.maybe_fork(proj)
