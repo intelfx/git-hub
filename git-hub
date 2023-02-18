@@ -824,17 +824,25 @@ class SetupForkCmd (object):
     @classmethod
     def run(cls, parser, args):
         if args.repository is not None:
-            (urltype, proj) = cls.parse_repo(args.repository)
+            git_url = args.repository
         else:
             git_remotes = git('remote', 'show', '-n').split('\n')
             remote = args.upstreamremote
             if remote not in git_remotes:
-                if len(git_remotes) == 1:
-                    git('remote', 'rename', '--', git_remotes[0], remote)
-                else:
+                candidates = []
+                for r in git_remotes:
+                    try:
+                        # if this throws, the remote is bad
+                        cls.parse_repo(git('remote', 'get-url', '--', r))
+                        candidates.append(r)
+                    except UserError:
+                        pass
+                if len(candidates) != 1:
                     die("No REPO specified, nor does `{}` remote exist", remote)
+                # only rename the remote after we've reasonably made sure that it fits
+                git('remote', 'rename', '--', candidates[0], remote)
             git_url = git('remote', 'get-url', '--', remote)
-            (urltype, proj) = cls.parse_repo(git_url)
+        (urltype, proj) = cls.parse_repo(git_url)
         (repo, upstream, forked) = cls.maybe_fork(proj)
         cls.setup_dest(parser, args, urltype, proj, repo, upstream, forked, None)
 
