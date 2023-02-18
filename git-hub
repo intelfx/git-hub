@@ -128,9 +128,18 @@ def errf(fmt='', *args, **kwargs):
     localeprintf(sys.stderr, '{}', msg)
     sys.stderr.flush()
 
+class UserError(RuntimeError):
+    def __init__(self, fmt, *args, **kwargs):
+        super().__init__()
+        self.err_fmt = fmt
+        self.err_args = args
+        self.err_kwargs = kwargs
+
+    def print(self):
+        errf(self.err_fmt, *self.err_args, **self.err_kwargs)
+
 def die(fmt='', *args, **kwargs):
-    errf(fmt, *args, **kwargs)
-    sys.exit(1)
+    raise UserError(fmt, *args, **kwargs)
 
 # This is very similar to die() but used to exit the program normally having
 # full stack unwinding. The message is printed with infof() and the exit status
@@ -2346,6 +2355,9 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except UserError as error:
+        error.print()
+        sys.exit(1)
     except urllib.error.HTTPError as error:
         try:
             body = error.read()
