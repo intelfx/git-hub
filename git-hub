@@ -890,7 +890,7 @@ class SetupForkCmd (object):
         else:
             # We are inside working directory of a pre-cloned repository, just
             # setup a remote and fetch it
-            added=cls.git_add_remote(remote, url)
+            added=cls.git_add_remote(remote, url, quiet=True)
             if added:
                 cls.git_retry_if(not args.triangular and forked,
                         'fetch', ['--', remote],
@@ -922,7 +922,7 @@ class SetupForkCmd (object):
         ))
 
     @classmethod
-    def git_add_remote(cls, remote, url):
+    def git_add_remote(cls, remote, url, quiet=False):
         git_remotes = git('remote', 'show', '-n').split('\n')
         if remote in git_remotes:
             git_url = git('remote', 'get-url', '--', remote)
@@ -931,7 +931,7 @@ class SetupForkCmd (object):
             git_repo = cls.parse_repo(git_url)
             if repo[1] != git_repo[1]:
                 die("Remote {} already exists and is set to {} instead of {}", remote, git_url, url)
-            else:
+            elif not quiet:
                 infof("Nothing to do, remote {} already exists and is already set to {}", remote, git_url)
             return False
         else:
