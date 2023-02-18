@@ -840,6 +840,7 @@ class SetupForkCmd (object):
                 if len(candidates) != 1:
                     die("No REPO specified, nor does `{}` remote exist", remote)
                 # only rename the remote after we've reasonably made sure that it fits
+                infof("Renaming `{}` remote to `{}`", candidates[0], remote)
                 git('remote', 'rename', '--', candidates[0], remote)
             git_url = git('remote', 'get-url', '--', remote)
         (urltype, proj) = cls.parse_repo(git_url)
