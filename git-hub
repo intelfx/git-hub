@@ -41,9 +41,11 @@ import io
 import os
 import re
 import sys
+import enum
 import time
 import json
 import http.client
+import attrs
 import pprint
 import urllib.request, urllib.error, urllib.parse
 import getpass
@@ -52,9 +54,12 @@ import argparse
 import subprocess
 from functools import partial
 from typing import (
+    assert_never,
+    ClassVar,
     Never,
     Optional,
     Union,
+    Self,
 )
 
 # Output levels according to user selected verbosity
@@ -374,6 +379,96 @@ def run_hookscript(hook, env=None):
     if status != 0:
         warnf("The hookscript ({}) failed (status={}), continuing anyway...",
                 config.hookscript, status)
+
+
+@attrs.define(kw_only=True)
+class GitURL:
+    class Exception(RuntimeError):
+        pass
+
+    class Type(enum.Enum):
+        URL = enum.auto()
+        SSH = enum.auto()
+
+    ACCEPTABLE_HOSTS: ClassVar[tuple[str, ...]] = (
+        'github.com',
+    )
+    ACCEPTABLE_SCHEMES: ClassVar[tuple[str, ...]] = (
+        'git',
+        'https',
+    )
+
+    type: Type
+    scheme: Optional[str]
+    netloc: str
+    owner: str
+    project: str
+    suffix: str
+
+    def to_str(self) -> str:
+        match self.type:
+            case self.Type.URL:
+                return f'{self.scheme}://{self.netloc}/{self.owner}/{self.project}{self.suffix}'
+            case self.Type.SSH:
+                return f'{self.netloc}:{self.owner}/{self.project}{self.suffix}'
+            case _:
+                assert_never(self.type)
+
+    @classmethod
+    def _from_parts(cls, /, url: str, type: Type, scheme: Optional[str], netloc: str, path: str) -> Self:
+        # validate scheme
+        if type == cls.Type.URL and scheme not in cls.ACCEPTABLE_SCHEMES:
+            raise cls.Exception(f'Invalid GitHub URL: {url}')
+        # extract and validate hostname
+        hostname = netloc
+        if '@' in hostname:
+            _, hostname = hostname.split('@', maxsplit=1)
+        if ':' in hostname:
+            hostname, _ = hostname.split(':', maxsplit=1)
+        if hostname not in cls.ACCEPTABLE_HOSTS:
+            raise cls.Exception(f'Invalid GitHub URL: {url}')
+        # strip (and keep) trailing ".git"
+        suffix = ''
+        m = re.search(r'\.git/?$', path)
+        if m:
+            suffix = m.group()
+            path = path[:m.start()]
+        # split and validate path
+        if path.count('/') != 1:
+            raise cls.Exception(f'Invalid GitHub URL: {url}')
+        owner, project = path.split('/', maxsplit=1)
+        return cls(
+            type=type,
+            scheme=scheme,
+            netloc=netloc,
+            owner=owner,
+            project=project,
+            suffix=suffix,
+        )
+
+    @classmethod
+    def parse(cls, repo: str) -> Self:
+        if '://' in repo:
+            url = urllib.parse.urlparse(repo)
+            if url.hostname not in cls.ACCEPTABLE_HOSTS:
+                raise cls.Exception(f'Invalid GitHub clone URL: {repo}')
+            return cls._from_parts(
+                url=repo,
+                type=cls.Type.URL,
+                scheme=url.scheme,
+                netloc=url.netloc,
+                path=url.path,
+            )
+        elif ':' in repo:
+            netloc, path = repo.split(':', maxsplit=1)
+            return cls._from_parts(
+                url=repo,
+                type=cls.Type.SSH,
+                scheme=None,
+                netloc=netloc,
+                path=path,
+            )
+        raise cls.Exception(f'Invalid Git URL: {repo}')
 
 
 # git-hub specific configuration container
