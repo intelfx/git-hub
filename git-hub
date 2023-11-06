@@ -458,32 +458,17 @@ class GitURL:
                 raise cls.Exception(f'Invalid GitHub repo: {repo}')
 
         if config.urltype == 'clone_url':
-            return cls(
-                type=cls.Type.URL,
-                scheme='https',
-                netloc='github.com',
-                owner=owner,
-                project=project,
-                suffix='',
-            )
+            typ = cls.Type.URL
+            scheme = 'https'
+            netloc = 'github.com'
         elif config.urltype == 'git_url':
-            return cls(
-                type=cls.Type.URL,
-                scheme='git',
-                netloc='github.com',
-                owner=owner,
-                project=project,
-                suffix='',
-            )
+            typ = cls.Type.URL
+            scheme = 'git'
+            netloc = 'github.com'
         elif config.urltype == 'ssh_url':
-            return cls(
-                type=cls.Type.SSH,
-                scheme=None,
-                netloc='git@github.com',
-                owner=owner,
-                project=project,
-                suffix='',
-            )
+            typ = cls.Type.SSH
+            scheme = None
+            netloc = 'git@github.com'
         elif config.urltype is None:
             die("Can't infer URL type and "
                 "can't find '{}{}' config key in git config. "
@@ -493,6 +478,15 @@ class GitURL:
             die("Bad '{}{}' config key in git config. "
                 "Read the man page for details.",
                 GIT_CONFIG_PREFIX, 'urltype')
+
+        return cls(
+            type=typ,
+            scheme=scheme,
+            netloc=netloc,
+            owner=owner,
+            project=project,
+            suffix='',
+        )
 
     @classmethod
     def parse(cls, repo: str, /, accept_path = False, config: Optional['Config'] = None) -> Self:
