@@ -52,6 +52,7 @@ import argparse
 import subprocess
 from functools import partial
 from typing import (
+    Never,
     Optional,
     Union,
 )
@@ -143,7 +144,7 @@ class UserError(RuntimeError):
     def print(self):
         errf(self.err_fmt, *self.err_args, **self.err_kwargs)
 
-def die(fmt='', *args, **kwargs):
+def die(fmt='', *args, **kwargs) -> Never:
     raise UserError(fmt, *args, **kwargs)
 
 # This is very similar to die() but used to exit the program normally having
