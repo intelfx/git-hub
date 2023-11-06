@@ -514,8 +514,8 @@ class GitURL:
             if config is None:
                 raise ValueError()
             return cls._from_path(
+                repo=repo,
                 config=config,
-                path=repo,
             )
 
         raise cls.Exception(f'Invalid Git URL: {repo}')
