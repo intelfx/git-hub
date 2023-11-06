@@ -381,6 +381,13 @@ def run_hookscript(hook, env=None):
                 config.hookscript, status)
 
 
+# Container for a Git(Hub) remote URL. Can be constructed from a full
+# Git remote URL (in either URL or scp syntax) or from a bare GitHub
+# repository path (<owner>/<repo> or just <repo>, in which case the
+# owner is assumed to be the configured user).
+#
+# If constructed from a bare GitHub repository path, the URL type
+# is taken from the configuration (preferring scp syntax for "ssh_url").
 @attrs.define(kw_only=True)
 class GitURL:
     class Exception(RuntimeError):
