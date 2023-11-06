@@ -447,7 +447,55 @@ class GitURL:
         )
 
     @classmethod
-    def parse(cls, repo: str) -> Self:
+    def _from_path(cls, /, repo: str, config: 'Config'):
+        match repo.count('/'):
+            case 0:
+                # If no / was found, then we assume the owner is the user
+                owner, project = config.username, repo
+            case 1:
+                owner, project = repo.split('/', maxsplit=1)
+            case _:
+                raise cls.Exception(f'Invalid GitHub repo: {repo}')
+
+        if config.urltype == 'clone_url':
+            return cls(
+                type=cls.Type.URL,
+                scheme='https',
+                netloc='github.com',
+                owner=owner,
+                project=project,
+                suffix='',
+            )
+        elif config.urltype == 'git_url':
+            return cls(
+                type=cls.Type.URL,
+                scheme='git',
+                netloc='github.com',
+                owner=owner,
+                project=project,
+                suffix='',
+            )
+        elif config.urltype == 'ssh_url':
+            return cls(
+                type=cls.Type.SSH,
+                scheme=None,
+                netloc='git@github.com',
+                owner=owner,
+                project=project,
+                suffix='',
+            )
+        elif config.urltype is None:
+            die("Can't infer URL type and "
+                "can't find '{}{}' config key in git config. "
+                "Read the man page for details.",
+                GIT_CONFIG_PREFIX, 'urltype')
+        else:
+            die("Bad '{}{}' config key in git config. "
+                "Read the man page for details.",
+                GIT_CONFIG_PREFIX, 'urltype')
+
+    @classmethod
+    def parse(cls, repo: str, /, accept_path = False, config: Optional['Config'] = None) -> Self:
         if '://' in repo:
             url = urllib.parse.urlparse(repo)
             if url.hostname not in cls.ACCEPTABLE_HOSTS:
@@ -468,6 +516,14 @@ class GitURL:
                 netloc=netloc,
                 path=path,
             )
+        elif accept_path:
+            if config is None:
+                raise ValueError()
+            return cls._from_path(
+                config=config,
+                path=repo,
+            )
+
         raise cls.Exception(f'Invalid Git URL: {repo}')
 
 
