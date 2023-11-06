@@ -532,6 +532,17 @@ class GitURL:
 #
 # These variables are described in the manual page.
 class Config:
+    username: Optional[str]
+    oauthtoken: Optional[str]
+    upstream: Optional[str]
+    forkrepo: Optional[str]
+    upstreamremote: str
+    forkremote: str
+    urltype: str
+    baseurl: str
+    forcerebase: bool
+    triangular: bool
+    hookscript: Optional[str]
 
     def __init__(self):
         self.username = git_config('username', getpass.getuser())
