@@ -992,7 +992,7 @@ class SetupForkCmd (object):
         if args.repository is not None:
             git_url = args.repository
         else:
-            git_remotes = git('remote', 'show', '-n').split('\n')
+            git_remotes = git('remote', 'show', '-n').splitlines()
             remote = args.upstreamremote
             if remote not in git_remotes:
                 candidates = []
