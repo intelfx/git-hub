@@ -421,6 +421,9 @@ class GitURL:
             case _:
                 assert_never(self.type)
 
+    def proj(self) -> str:
+        return f'{self.owner}/{self.project}'
+
     @classmethod
     def _from_parts(cls, /, url: str, type: Type, scheme: Optional[str], netloc: str, path: str) -> Self:
         # validate scheme
