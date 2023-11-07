@@ -412,7 +412,7 @@ class GitURL:
     project: str
     suffix: str
 
-    def to_str(self) -> str:
+    def __str__(self) -> str:
         match self.type:
             case self.Type.URL:
                 return f'{self.scheme}://{self.netloc}/{self.owner}/{self.project}{self.suffix}'
