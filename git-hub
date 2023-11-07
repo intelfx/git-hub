@@ -436,8 +436,7 @@ class GitURL:
             raise cls.Exception(f'Invalid GitHub URL: {url}')
         # strip (and keep) trailing ".git"
         suffix = ''
-        m = re.search(r'\.git/?$', path)
-        if m:
+        if m := re.search(r'\.git/?$', path):
             suffix = m.group()
             path = path[:m.start()]
         # split and validate path
