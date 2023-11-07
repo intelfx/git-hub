@@ -499,11 +499,9 @@ class GitURL:
         )
 
     @classmethod
-    def from_url(cls, repo: str, /, accept_path = False, config: Optional['Config'] = None) -> Self:
+    def from_url(cls, repo: str, /, accept_path=False, config: Optional['Config'] = None) -> Self:
         if '://' in repo:
             url = urllib.parse.urlparse(repo)
-            if url.hostname not in cls.ACCEPTABLE_HOSTS:
-                raise cls.Exception(f'Invalid GitHub clone URL: {repo}')
             return cls._from_parts(
                 url=repo,
                 type=cls.Type.URL,
