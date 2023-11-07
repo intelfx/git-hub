@@ -403,6 +403,7 @@ class GitURL:
     ACCEPTABLE_SCHEMES: ClassVar[tuple[str, ...]] = (
         'git',
         'https',
+        'ssh,'
     )
 
     type: Type
