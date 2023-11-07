@@ -425,6 +425,19 @@ class GitURL:
     def proj(self) -> str:
         return f'{self.owner}/{self.project}'
 
+    def urltype(self) -> Literal['git_url', 'clone_url', 'ssh_url']:
+        match self.type, self.scheme:
+            case self.Type.URL, 'https':
+                return 'clone_url'
+            case self.Type.URL, 'git':
+                return 'git_url'
+            case self.Type.URL, 'ssh':
+                return 'ssh_url'
+            case self.type.SSH, None:
+                return 'ssh_url'
+            case _:
+                raise ValueError(f'GitURL has unknown type: {self}')
+
     @classmethod
     def _from_parts(cls, /, url: str, type: Type, scheme: Optional[str], netloc: str, path: str) -> Self:
         # validate scheme
