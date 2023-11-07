@@ -518,13 +518,13 @@ class GitURL:
             )
         elif accept_path:
             if config is None:
-                raise ValueError()
+                raise ValueError('accept_path=True but config=None')
             return cls._from_path(
                 repo=repo,
                 config=config,
             )
-
-        raise cls.Exception(f'Invalid Git URL: {repo}')
+        else:
+            raise cls.Exception(f'Invalid Git URL: {repo}')
 
 
 # git-hub specific configuration container
