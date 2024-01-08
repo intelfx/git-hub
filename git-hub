@@ -546,7 +546,7 @@ class GitURL:
 #
 # These variables are described in the manual page.
 class Config:
-    username: Optional[str]
+    username: str
     oauthtoken: Optional[str]
     upstream: Optional[str]
     forkrepo: Optional[str]
