@@ -962,9 +962,11 @@ class SetupForkCmd (object):
         # ~5m total wait time with "human" exponential backoff
         wait_times = [1, 2, 5, 10, 15, 30, 60, 90, 90]
         retries = 0
+        # todo enumerate
         while retries < len(wait_times):
             try:
                 infof(progress_msg)
+                # todo GIT_QUIET sentinel
                 git_quiet(1, cmd, *args)
                 break
             except GitError as e:
