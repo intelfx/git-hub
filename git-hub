@@ -1117,29 +1117,105 @@ class SetupForkCmd (object):
 
     @classmethod
     def run(cls, parser, args):
-        if args.repository is not None:
-            git_url = args.repository
+        target_repo: Optional[str] = args.repository
+        upstream_name: str = args.upstreamremote
+        fork_name: str = args.forkremote
+
+        # parse existing remotes
+        remotes: dict[str, GitURL] = dict()
+        bad_remotes: dict[str, tuple[str, Exception]] = dict()
+        for r in git('remote', 'show', '-n').splitlines():
+            u = git('remote', 'get-url', '--', r)
+            try:
+                # if this throws, the remote is bad
+                remotes[r] = GitURL.from_url(u)
+            except GitURL.Exception as e:
+                bad_remotes[r] = u, e
+
+        # see if we have conflicting remotes that are not GitHub
+        for r in upstream_name, fork_name:
+            if r in bad_remotes:
+                die("`{}` does not seem to be a GitHub remote: {}", r, bad_remotes[r][1])
+
+        if target_repo is None:
+            # try to discover the repository
+            upstream_url = remotes.get(upstream_name)
+            fork_url = remotes.get(fork_name)
+
+            if upstream_url is not None and fork_url is not None:
+                # check that fork is, in fact, a fork of upstream
+                fork_result = cls.check_fork(fork_url)
+                if not fork_result.is_fork_of(upstream_url):
+                    die("`{0}` and `{1}` exist, but `{0}` does not seem to be a fork of `{1}`",
+                        fork_name, upstream_name)
+                # TODO: transactional (R/O) way to check that the fork is, in fact, our fork
+                #       (what exactly is "our"?)
+                #fork_result = cls.maybe_fork(upstream_url)
+                #if fork_result.this_proj != fork_url.proj():
+                if not fork_result.is_our_fork():
+                    die("`{0}` and `{1}` exist, but `{0}` is not our fork of `{1}`",
+                        fork_name, upstream_name)
+            elif upstream_url is not None:
+                # try to fork the upstream
+                fork_result = cls.maybe_fork(upstream_url)
+                if not fork_result.is_fork_of(upstream_url):
+                    die("`{}` exists, but it could not be forked", upstream_name)
+                # try to adopt any existing remote for the fork
+                for name, url in remotes.items():
+                    if fork_result.fork_proj == url.proj():
+                        fork_name, fork_url = name, url
+            elif fork_url is not None:
+                # try to find the upstream
+                fork_result = cls.maybe_fork(fork_url)
+                if not fork_result.is_fork_at(fork_url):
+                    die("`{}` exists, but it is not a fork", fork_name)
+                # try to adopt any existing remote for the upstream
+                for name, url in remotes.items():
+                    if fork_result.upstream_proj == url.proj():
+                        upstream_name, upstream_url = name, url
+            elif len(remotes) == 1:
+                # we have only one GitHub remote, see if it is a fork or a potential upstream
+                name, url = next(iter(remotes.items()))
+                fork_result = cls.maybe_fork(url)
+                if fork_result.is_fork_at(url):
+                    fork_name, fork_url = name, url
+                elif fork_result.is_fork_of(url):
+                    upstream_name, upstream_url = name, url
+                else:
+                    # WTF? never mind, we will create both the fork and the upstream
+                    warnf("`{}` exists, but we could not determine if it was a fork or an upstream",
+                          name)
+            elif len((candidates := {
+                name: (url, resp)
+                for name, url
+                in remotes.items()
+                if (resp := cls.check_fork(url)).is_our_fork()
+            })) == 1:
+                # we have multiple remotes, but exactly one of them is a fork
+                fork_name, (fork_url, fork_result) = next(iter(candidates.items()))
+            else:
+                die("No REPO specified, nor does `{}` or `{}` remote exist",
+                    fork_name, upstream_name)
+
         else:
-            git_remotes = git('remote', 'show', '-n').splitlines()
-            remote = args.upstreamremote
-            if remote not in git_remotes:
-                candidates = []
-                for r in git_remotes:
-                    try:
-                        # if this throws, the remote is bad
-                        cls.parse_repo(git('remote', 'get-url', '--', r))
-                        candidates.append(r)
-                    except UserError:
-                        pass
-                if len(candidates) != 1:
-                    die("No REPO specified, nor does `{}` remote exist", remote)
-                # only rename the remote after we've reasonably made sure that it fits
-                infof("Renaming `{}` remote to `{}`", candidates[0], remote)
-                git('remote', 'rename', '--', candidates[0], remote)
-            git_url = git('remote', 'get-url', '--', remote)
-        (urltype, proj) = cls.parse_repo(git_url)
-        (repo, upstream, forked) = cls.maybe_fork(proj)
-        cls.setup_dest(parser, args, urltype, proj, repo, upstream, forked, None)
+            # We have the repository, try to discover matching remotes
+            die("Unimplemented")
+
+        assert fork_result is not None
+        assert fork_result.fork_proj is not None
+        # upstream_proj may be None if we took the "WTF?" branch above
+        # and this is our personal repository without an upstream
+
+        cls.setup_dest(
+            parser,
+            args,
+            fork_result=fork_result,
+            urltype=urltype,
+            dest=None,
+            remotes=remotes,
+            fork_name=fork_name,
+            upstream_name=upstream_name,
+        )
 
     @classmethod
     def setup_dest(
