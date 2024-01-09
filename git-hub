@@ -1096,12 +1096,12 @@ class SetupForkCmd (object):
                 help="use NAME as the fork remote name "
                 "instead of the default '{}'".format(config.forkremote))
         parser.add_argument('-t', '--triangular', action="store_true",
-                default=None,
+                default=config.triangular,
                 help="use Git 'triangular workflow' setup, so you can "
                 "push by default to your fork but pull by default "
                 "from 'upstream'")
         parser.add_argument('--no-triangular', action="store_false",
-                dest='triangular',
+                dest='triangular', default=config.triangular,
                 help="do not use Git 'triangular workflow' setup")
 
     @classmethod
