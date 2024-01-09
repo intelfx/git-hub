@@ -1166,12 +1166,6 @@ class SetupForkCmd (object):
                 cmd, sum(wait_times)//60, retries)
 
     @classmethod
-    def repo_is_fork(cls, repo: GitURL) -> bool:
-        # TODO Is it possible in GitHub to fork a project into a different namespace
-        #      than your own username? if so, expand this check
-        return repo.owner == config.username
-
-    @classmethod
     def parse_repo(cls, repo):
         # None means the URL was specified as just 'owner/repo' or
         # plain 'repo'
