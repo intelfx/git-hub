@@ -1280,28 +1280,35 @@ class SetupForkCmd (object):
         return (urltype, proj)
 
     @classmethod
-    def maybe_fork(cls, proj):
-        forked = False
-        if proj.split('/')[0] == config.username:
-            # Our own repository
-            repo = req.get('/repos/' + proj)
-            if repo['fork']:
-                upstream = repo['parent']['full_name']
-            else:
-                upstream = None
-        else:
-            upstream = proj
-            # Try to fork, if a fork already exists, we'll get the
-            # information for the pre-existing fork
-            # XXX: This is not properly documented in the GitHub
-            #      API docs, but it seems to work as of Sep 2016.
-            #      See https://github.com/sociomantic-tsunami/git-hub/pull/193
-            #      for more details.
-            infof('Checking for existing fork / forking {}...', upstream)
-            repo = req.post('/repos/' + upstream + '/forks')
-            infof('Fork exists / created at {}', repo['html_url'])
-            forked = True
-        return (repo, upstream, forked)
+    def check_fork(cls, url: GitURL) -> ForkResult:
+        proj = url.proj()
+        infof('Checking status of {}...', proj)
+        fork_resp = req.get('/repos/' + proj)
+        return ForkResult(
+            resp=fork_resp,
+            fork_proj=fork_resp['full_name'],
+            upstream_proj=fork_resp['parent']['full_name'] if fork_resp['fork'] else None,
+            was_forked=False,
+        )
+
+    @classmethod
+    def maybe_fork(cls, url: GitURL|str) -> ForkResult:
+        proj = url.proj() if isinstance(url, GitURL) else url
+        # Try to fork, if a fork already exists, we'll get the
+        # information for the pre-existing fork
+        # XXX: This is not properly documented in the GitHub
+        #      API docs, but it seems to work as of Sep 2016.
+        #      See https://github.com/sociomantic-tsunami/git-hub/pull/193
+        #      for more details.
+        infof('Checking for existing fork / forking {}...', proj)
+        fork_resp = req.post('/repos/' + proj + '/forks')
+        infof('Fork exists / created at {}', fork_resp['html_url'])
+        return ForkResult(
+            resp=fork_resp,
+            fork_proj=fork_resp['full_name'],
+            upstream_proj=fork_resp['parent']['full_name'] if fork_resp['fork'] else None,
+            was_forked=(fork_resp['full_name'] != proj),
+        )
 
     @classmethod
     def check_triangular(cls, triangular):
