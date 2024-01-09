@@ -1226,6 +1226,73 @@ class SetupForkCmd (object):
             return True
 
     @classmethod
+    def git_ensure_remote(
+        cls,
+        *,
+        target_name: str,
+        target_url: GitURL,
+        remote_name: Optional[str] = None,
+        remotes: Optional[dict[str, GitURL]] = None,
+        quiet: bool = False,
+        retry_fetch: bool = False,
+    ) -> str:
+        """
+        Ensure that a remote exists and points to a project.
+
+        Ensure that either `target_name` or `remote_name` exists
+        and points to `target_proj`. If `remote_name` exists and
+        `target_name` does not, rename `remote_name` to `target_name`.
+
+        If `remote_name` is not set, renaming is not performed.
+        If `remotes` is not set, a new remote is always added.
+        If `remotes` is set, it is updated accordingly.
+
+        :param target_name: Name of the remote to be created
+        :param target_url: GitHub URL to point the remote at
+        :param remote_name: Name of the remote to rename, if it exists
+        :param remotes: Existing remotes and their URLs
+        :param quiet: Whether to silence unimportant messages
+        :param retry_fetch: Whether to retry fetches of a newly created remote
+        :returns: The final name of the remote (always `target_name`)
+        """
+        if remotes is None: remotes = {}
+
+        if target_name in remotes:
+            # nothing to do
+            if remotes[target_name].proj() != target_url.proj():
+                die("Remote `{}` already exists and is set to {} instead of {}",
+                    target_name,
+                    remotes[target_name],
+                    target_url,
+                    GitURL.from_path(target_url.proj(), urltype=remotes[target_name].urltype()))
+            elif not quiet:
+                infof("Nothing to do, remote {} already exists and is already set to {}",
+                      target_name, remotes[target_name])
+
+        elif remote_name in remotes:
+            # rename `remote_name` to `target_name`
+            if remotes[remote_name].proj() != target_url.proj():
+                die("Remote `{}` already exists and is set to {} instead of {}",
+                    remote_name,
+                    remotes[remote_name],
+                    GitURL.from_path(target_url.proj(), urltype=remotes[remote_name].urltype()))
+            infof("Renaming `{}` remote to `{}`", remote_name, target_name)
+            git('remote', 'rename', '--', remote_name, target_name)
+            remotes[target_name] = remotes.pop(remote_name)
+
+        else:
+            # create remote at `target_name`
+            git('remote', 'add', '--', target_name, target_url)
+            cls.git_retry_if(
+                retry_fetch,
+                'fetch', ['--', target_name],
+                'Fetching from {} ({})'.format(target_name, target_url)
+            )
+            remotes[target_name] = target_url
+
+        return target_name
+
+    @classmethod
     def git_retry_if(cls, condition, cmd, args, progress_msg):
         # If we are not retrying, just do it once
         if not condition:
