@@ -43,6 +43,7 @@ import re
 import sys
 import time
 import json
+import http.client
 import pprint
 import urllib.request, urllib.error, urllib.parse
 import getpass
@@ -50,6 +51,10 @@ import os.path
 import argparse
 import subprocess
 from functools import partial
+from typing import (
+    Optional,
+    Union,
+)
 
 # Output levels according to user selected verbosity
 DEBUG = 3
@@ -452,7 +457,7 @@ class RequestManager:
     # Open an URL in an authenticated manner using the specified HTTP
     # method. It also add other convenience headers, like Content-Type,
     # Accept (both to json) and Content-Length).
-    def auth_urlopen(self, url, method, data, media_type):
+    def auth_urlopen(self, url, method, data, media_type) -> http.client.HTTPResponse:
         req = urllib.request.Request(url, _encode(data))
         if self.oauthtoken:
             req.add_header("Authorization", "token " + self.oauthtoken)
@@ -482,7 +487,7 @@ class RequestManager:
         return None
 
     # Get the next URL from the Link: header, if any
-    def get_next_url(self, response):
+    def get_next_url(self, response: http.client.HTTPResponse) -> Optional[str]:
         links = list()
         for l in response.headers.get("Link", "").split(','):
             links.extend(self.links_re.findall(l))
@@ -495,7 +500,7 @@ class RequestManager:
     # uppercase), and args/kwargs are data to be sent to the client. Only
     # one can be specified at a time and they are serialized as json (args
     # as a json list and kwargs as a json dictionary/object).
-    def json_req(self, url, method, media_type, *args, **kwargs):
+    def json_req(self, url, method, media_type, *args, **kwargs) -> Union[dict, list]:
         url = self.base_url + url
         if method.upper() in ('POST', 'PATCH', 'PUT'):
             body = self.dump(*args, **kwargs)
@@ -522,6 +527,14 @@ class RequestManager:
             data = prev_data
         debugf("Parsed data:\n{}", pformat(data))
         return data
+
+    def options(self, url, *args, **kwargs) -> Union[dict, list]: ...
+    def head(self, url, *args, **kwargs) -> Union[dict, list]: ...
+    def get(self, url, *args, **kwargs) -> Union[dict, list]: ...
+    def post(self, url, *args, **kwargs) -> Union[dict, list]: ...
+    def patch(self, url, *args, **kwargs) -> Union[dict, list]: ...
+    def put(self, url, *args, **kwargs) -> Union[dict, list]: ...
+    def delete(self, url, *args, **kwargs) -> Union[dict, list]: ...
 
 # Create RequestManager.head(), get(), ... methods
 # We need the make_method() function to make Python bind the method variable
@@ -1119,7 +1132,7 @@ class IssueUtil (object):
                 **issue)
 
     @classmethod
-    def print_issue_header(cls, issue):
+    def print_issue_header(cls, issue: dict):
         issue['labels'] = ' '.join(['['+l['name']+']'
                 for l in issue.get('labels', [])])
         if issue['labels']:
@@ -1270,7 +1283,7 @@ class IssueCmd (CmdGroup):
                             cls.name))
         @classmethod
         def run(cls, parser, args):
-            def filter_issue(name, issue):
+            def filter_issue(name, issue: dict):
                 a = issue.get(name)
                 if a and a['login'] == config.username:
                     return True
