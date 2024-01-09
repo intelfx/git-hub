@@ -604,6 +604,23 @@ class ForkResult:
         if self.fork_proj == self.upstream_proj:
             raise ValueError(f'Invalid {self}: fork and upstream are the same')
 
+    def is_fork_of(self, url: GitURL) -> bool:
+        return self.upstream_proj == url.proj()
+
+    def is_fork_at(self, url: GitURL) -> bool:
+        return (
+            self.upstream_proj is not None and
+            self.fork_proj == url.proj()
+        )
+
+    def is_our_fork(self) -> bool:
+        # TODO Is it possible in GitHub to fork a project into a different namespace
+        #      than your own username? if so, expand this check
+        return (
+            self.upstream_proj is not None and
+            self.resp['owner']['login'] == config.username
+        )
+
 
 # git-hub specific configuration container
 #
