@@ -1103,6 +1103,9 @@ class SetupForkCmd (object):
         parser.add_argument('--no-triangular', action="store_false",
                 dest='triangular', default=config.triangular,
                 help="do not use Git 'triangular workflow' setup")
+        parser.add_argument('--no-rename-remote', action="store_false",
+                dest='rename_remote',
+                help="do not rename fork/upstream remotes if found under different names")
 
     @classmethod
     def run(cls, parser, args):
