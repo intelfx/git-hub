@@ -593,6 +593,18 @@ class GitURL:
             raise cls.Exception(f'Invalid Git URL: {repo}')
 
 
+@attrs.define(kw_only=True)
+class ForkResult:
+    resp: dict
+    fork_proj: str
+    upstream_proj: str
+    was_forked: bool
+
+    def __attrs_post_init__(self):
+        if self.fork_proj == self.upstream_proj:
+            raise ValueError(f'Invalid {self}: fork and upstream are the same')
+
+
 # git-hub specific configuration container
 #
 # These variables are described in the manual page.
