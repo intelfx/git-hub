@@ -1197,6 +1197,12 @@ class SetupForkCmd (object):
                 die("No REPO specified, nor does `{}` or `{}` remote exist",
                     fork_name, upstream_name)
 
+            # find which urltype the user prefers
+            urltype = next((
+                i.urltype()
+                for i in (fork_url, upstream_url)
+                if i is not None
+            ), None)
         else:
             # We have the repository, try to discover matching remotes
             die("Unimplemented")
