@@ -212,6 +212,13 @@ def ask(question, default=None, options=["yes", "no"]):
                     ', '.join(options))
 
 
+def ergo(ante, cons) -> bool:
+    return not ante or cons
+
+def equi(ante, cons) -> bool:
+    #return ergo(ante, cons) and ergo(cons, ante)
+    return (not ante) == (not cons)
+
 # Git manipulation functions and constants
 ########################################################################
 
