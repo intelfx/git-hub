@@ -444,6 +444,27 @@ class GitURL:
                 raise ValueError(f'GitURL has unknown type: {self}')
 
     @classmethod
+    def _urltype(cls, *,
+                 urltype: Optional[APIType] = None,
+                 config: Optional['Config'] = None) -> APIType:
+        if urltype is not None:
+            return urltype
+        elif config is None:
+            raise AssertionError(f'called with urltype=None and config=None')
+        elif config.urltype is None:
+            die("Can't infer URL type and "
+                "can't find '{}{}' config key in git config. "
+                "Read the man page for details.",
+                GIT_CONFIG_PREFIX, 'urltype')
+        elif config.urltype not in cls.APIType:
+            die("Bad '{}{}' config key in git config. "
+                "Read the man page for details.",
+                GIT_CONFIG_PREFIX, 'urltype')
+        else:
+            return cls.APIType(config.urltype)
+
+
+    @classmethod
     def _from_parts(cls, *, url: str, type: Type, scheme: Optional[str], netloc: str, path: str) -> Self:
         # validate scheme
         if type == cls.Type.URL and scheme not in cls.ACCEPTABLE_SCHEMES:
@@ -475,7 +496,9 @@ class GitURL:
         )
 
     @classmethod
-    def _from_path(cls, /, repo: str, config: 'Config'):
+    def from_path(cls, /, repo: str, *,
+                  urltype: Optional[APIType] = None,
+                  config: Optional['Config'] = None):
         match repo.count('/'):
             case 0:
                 # If no / was found, then we assume the owner is the user
@@ -485,27 +508,23 @@ class GitURL:
             case _:
                 raise cls.Exception(f'Invalid GitHub repo: {repo}')
 
-        if config.urltype == 'clone_url':
-            typ = cls.Type.URL
-            scheme = 'https'
-            netloc = 'github.com'
-        elif config.urltype == 'git_url':
-            typ = cls.Type.URL
-            scheme = 'git'
-            netloc = 'github.com'
-        elif config.urltype == 'ssh_url':
-            typ = cls.Type.SSH
-            scheme = None
-            netloc = 'git@github.com'
-        elif config.urltype is None:
-            die("Can't infer URL type and "
-                "can't find '{}{}' config key in git config. "
-                "Read the man page for details.",
-                GIT_CONFIG_PREFIX, 'urltype')
-        else:
-            die("Bad '{}{}' config key in git config. "
-                "Read the man page for details.",
-                GIT_CONFIG_PREFIX, 'urltype')
+        urltype = cls._urltype(urltype=urltype, config=config)
+
+        match urltype:
+            case cls.APIType.CloneUrl:
+                typ = cls.Type.URL
+                scheme = 'https'
+                netloc = 'github.com'
+            case cls.APIType.GitUrl:
+                typ = cls.Type.URL
+                scheme = 'git'
+                netloc = 'github.com'
+            case cls.APIType.SshUrl:
+                typ = cls.Type.SSH
+                scheme = None
+                netloc = 'git@github.com'
+            case _:
+                assert_never(urltype)
 
         return cls(
             type=typ,
@@ -517,7 +536,9 @@ class GitURL:
         )
 
     @classmethod
-    def from_url(cls, /, repo: str, *, accept_path=False, config: Optional['Config'] = None) -> Self:
+    def from_url(cls, /, repo: str, *, accept_path=False,
+                 urltype: Optional[APIType] = None,
+                 config: Optional['Config'] = None) -> Self:
         if '://' in repo:
             url = urllib.parse.urlparse(repo)
             return cls._from_parts(
@@ -537,10 +558,9 @@ class GitURL:
                 path=path,
             )
         elif accept_path:
-            if config is None:
-                raise ValueError('accept_path=True but config=None')
-            return cls._from_path(
+            return cls.from_path(
                 repo=repo,
+                urltype=urltype,
                 config=config,
             )
         else:
