@@ -536,6 +536,32 @@ class GitURL:
         )
 
     @classmethod
+    def from_api(cls, /, resp: dict, *,
+                 urltype: Optional[APIType] = None,
+                 config: Optional['Config'] = None) -> Self:
+        urltype = cls._urltype(urltype=urltype, config=config)
+
+        try:
+            url = resp[urltype]
+        except KeyError:
+            die("GitHub did not provide a '{}' in its response.",
+                urltype)
+
+        try:
+            parsed_url = cls.from_url(url)
+            parsed_urltype = parsed_url.urltype()
+        except cls.Exception as e:
+            die("The URL reported by the GitHub server ({!r}) does not seem "
+                "to be valid!\n{}",
+                url, e)
+        if parsed_urltype != urltype:
+            die("The URL reported by the GitHub server ({!r}) does not look "
+                "like a '{}'! It looks like a '{}' instead.",
+                url, urltype, parsed_urltype)
+
+        return parsed_url
+
+    @classmethod
     def from_url(cls, /, repo: str, *, accept_path=False,
                  urltype: Optional[APIType] = None,
                  config: Optional['Config'] = None) -> Self:
