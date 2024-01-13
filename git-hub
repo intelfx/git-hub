@@ -1561,10 +1561,15 @@ class CloneCmd (SetupForkCmd):
 
     @classmethod
     def run(cls, parser, args):
-        (urltype, proj) = cls.parse_repo(args.repository)
-        (repo, upstream, forked) = cls.maybe_fork(proj)
-        dest = args.dest or repo['name']
-        cls.setup_dest(parser, args, urltype, proj, repo, upstream, forked, dest)
+        url = GitURL.from_url(args.repository, accept_path=True, config=config)
+        fork_result = cls.maybe_fork(url)
+        dest = args.dest if args.dest is not None else fork_result.resp['name']
+        cls.setup_dest(
+            parser, args,
+            fork_result=fork_result,
+            urltype=url.urltype(),
+            dest=dest,
+        )
 
 # Utility class that groups common functionality used by the multiple
 # `git hub issue` (and `git hub pull`) subcommands.
