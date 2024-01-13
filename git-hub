@@ -601,6 +601,11 @@ class ForkResult:
     was_forked: bool
 
     def __attrs_post_init__(self):
+        self.validate()
+
+    def validate(self):
+        if self.fork_proj is None:
+            raise ValueError(f'Invalid {self}: {self.fork_proj=}')
         if self.fork_proj == self.upstream_proj:
             raise ValueError(f'Invalid {self}: fork and upstream are the same')
 
