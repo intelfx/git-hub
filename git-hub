@@ -627,6 +627,14 @@ class ForkResult:
         )
 
 
+@attrs.define(kw_only=True, frozen=True, slots=False)
+class RemoteSpec:
+    remote_name: Optional[str]
+    target_name: str
+    target_url: GitURL
+    retry_fetch: bool
+
+
 # git-hub specific configuration container
 #
 # These variables are described in the manual page.
@@ -1134,29 +1142,64 @@ class SetupForkCmd (object):
         cls.setup_dest(parser, args, urltype, proj, repo, upstream, forked, None)
 
     @classmethod
-    def setup_dest(cls, parser, args, urltype, proj, repo, upstream, forked, dest):
-        personal = False
-        if upstream is None:
-            if args.upstreamremote != args.forkremote:
-                die('You are setting up with a personal repository as upstream, '
-                        '`--upstreamremote` and `--forkremote` must match')
-            upstream = proj
-            personal = True
-        triangular = cls.check_triangular(args.triangular
-                if args.triangular is not None else config.triangular)
+    def setup_dest(
+        cls,
+        parser,
+        args,
+        *,
+        fork_result: ForkResult,
+        urltype: Optional[GitURL.APIType],
+        dest: Optional[str],
+        remotes: Optional[dict[str, GitURL]] = None,
+        fork_name: Optional[str] = None,
+        upstream_name: Optional[str] = None,
+    ):
+        # validate args
+        fork_result.validate()
+        assert equi(dest is not None, remotes is None)
+        if remotes is None:
+            remotes = {}
+
+        # validate --upstreamremote
+        personal = fork_result.upstream_proj is None
+        if personal and args.upstreamremote is not config.upstreamremote:
+            warnf('You are setting up a personal repository, '
+                  '`--upstreamremote` will be ignored')
+        # validate --[no-]triangular
+        triangular = cls.check_triangular(args.triangular)
         if personal and triangular:
-            warnf('You are setting up with a personal repository as upstream, '
-                        'forcing `--no-triangular` mode')
+            warnf('You are setting up a personal repository, '
+                  'forcing `--no-triangular` mode')
             triangular = False
+
+        fork = RemoteSpec(
+            remote_name=fork_name,
+            target_name=args.forkremote,
+            target_url=GitURL.from_api(
+                fork_result.resp,
+                urltype=urltype, config=config,
+            ),
+            retry_fetch=fork_result.was_forked,
+        )
+        upstream = RemoteSpec(
+            remote_name=upstream_name,
+            target_name=args.upstreamremote,
+            target_url=GitURL.from_api(
+                fork_result.resp['parent'],
+                urltype=urltype, config=config,
+            ),
+            retry_fetch=False,
+        ) if not personal else fork
+
         if triangular:
-            url = repo['parent'][urltype]
-            remote = args.upstreamremote
+            # use the upstream remote to clone, then add fork as a remote
+            clone, fetch = upstream, fork
         else:
-            url = repo[urltype]
-            remote = args.forkremote
-        validate_url(url, urltype)
+            # use the fork remote to clone, then add upstream as a remote
+            clone, fetch = fork, upstream
+
         if dest is not None:
-            # Cloning to dest
+            # Clone the repository (via chosen remote) to `dest`
             #
             # It's complicated to allow the user to use the --origin option, there
             # is enough complexity with --upstreamremote and --forkremote, so ask
@@ -1168,43 +1211,40 @@ class SetupForkCmd (object):
             # If we just forked the repo, GitHub might still be doing the actual
             # fork, so cloning could fail temporarily. See
             # https://github.com/sociomantic-tsunami/git-hub/issues/214
-            cls.git_retry_if(not args.triangular and forked,
-                    'clone',
-                    args.unknown_args + ['--origin', remote, '--', url, dest],
-                    'Cloning {} to {}'.format(url, dest))
+            cls.git_retry_if(
+                clone.retry_fetch,
+                'clone',
+                args.unknown_args + ['--origin', clone.target_name, '--', clone.target_url, dest],
+                'Cloning {} to {}'.format(clone.target_url, dest)
+            )
+            remotes[clone.target_name] = clone.target_url
             # Complete the repository setup
             os.chdir(dest)
-        else:
-            # We are inside working directory of a pre-cloned repository, just
-            # setup a remote and fetch it
-            added=cls.git_add_remote(remote, url, quiet=True)
-            if added:
-                cls.git_retry_if(not args.triangular and forked,
-                        'fetch', ['--', remote],
-                        'Fetching from {} ({})'.format(remote, url))
 
-        if triangular:
-            fetchremote = args.forkremote
-            remote_url = repo[urltype]
-            git_config('remote.pushdefault', prefix='', value=fetchremote)
         else:
-            fetchremote = args.upstreamremote
-            remote_url = repo['parent'][urltype] if not personal else repo[urltype]
-        validate_url(remote_url, urltype)
-        added=cls.git_add_remote(fetchremote, remote_url)
-        if added:
-            # We also need to retry in here, although is less likely since we
-            # already spent some time doing the previous clone
-            cls.git_retry_if(args.triangular and forked,
-                    'fetch', ['--', fetchremote],
-                    'Fetching from {} ({})'.format(fetchremote, remote_url))
-        git_config('urltype', value=urltype)
-        git_config('forkremote', value=args.forkremote)
-        git_config('upstreamremote', value=args.upstreamremote)
-        git_config('upstream', value=upstream)
+            # We are inside a pre-cloned repository, just set up the chosen remote
+            if args.unknown_args:
+                die("No extra arguments are accepted when setting up an existing repository!")
+            cls.git_ensure_remote(
+                remotes=remotes,
+                **clone.__dict__,
+            )
+            # a symmetrical git_retry_if() call is made through git_ensure_remote()
+
+        # now add the other remote (_if it exists_)
+        if not personal:
+            cls.git_ensure_remote(
+                remotes=remotes,
+                **fetch.__dict__,
+            )
+
+        git_config('urltype', value=fork.target_url.urltype())
+        git_config('forkremote', value=fork.target_name)
+        git_config('upstreamremote', value=upstream.target_name)
+        git_config('upstream', value=upstream.target_url.proj())
         git_config('triangular', value='true' if triangular else 'false')
         run_hookscript('post-setup-fork', env=dict(
-            fetchremote=fetchremote,
+            fetchremote=fetch.target_name,
             triangular=triangular,
         ))
 
