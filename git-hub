@@ -397,6 +397,11 @@ class GitURL:
         URL = enum.auto()
         SSH = enum.auto()
 
+    class APIType(enum.StrEnum):
+        CloneUrl = 'clone_url'
+        GitUrl = 'git_url'
+        SshUrl = 'ssh_url'
+
     ACCEPTABLE_HOSTS: ClassVar[tuple[str, ...]] = (
         'github.com',
     )
@@ -425,16 +430,16 @@ class GitURL:
     def proj(self) -> str:
         return f'{self.owner}/{self.project}'
 
-    def urltype(self) -> Literal['git_url', 'clone_url', 'ssh_url']:
+    def urltype(self) -> APIType:
         match self.type, self.scheme:
             case self.Type.URL, 'https':
-                return 'clone_url'
+                return self.APIType.CloneUrl
             case self.Type.URL, 'git':
-                return 'git_url'
+                return self.APIType.GitUrl
             case self.Type.URL, 'ssh':
-                return 'ssh_url'
+                return self.APIType.SshUrl
             case self.type.SSH, None:
-                return 'ssh_url'
+                return self.APIType.SshUrl
             case _:
                 raise ValueError(f'GitURL has unknown type: {self}')
 
