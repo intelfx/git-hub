@@ -1186,17 +1186,40 @@ class SetupForkCmd (object):
                     # WTF? never mind, we will create both the fork and the upstream
                     warnf("`{}` exists, but we could not determine if it was a fork or an upstream",
                           name)
-            elif len((candidates := {
-                name: (url, resp)
-                for name, url
-                in remotes.items()
-                if (resp := cls.check_fork(url)).is_our_fork()
-            })) == 1:
-                # we have multiple remotes, but exactly one of them is a fork
-                fork_name, (fork_url, fork_result) = next(iter(candidates.items()))
             else:
-                die("No REPO specified, nor does `{}` or `{}` remote exist",
-                    fork_name, upstream_name)
+                # Query all GitHub remotes
+                results = {
+                    name: (url, resp)
+                    for name, url
+                    in remotes.items()
+                    if (resp := cls.check_fork(url))
+                }
+
+                if len((candidates := {
+                    name: (url, resp)
+                    for name, (url, resp)
+                    in results.items()
+                    if resp.is_our_fork()
+                })) == 1:
+                    # we have multiple remotes, but exactly one of them is a fork
+                    fork_name, (fork_url, fork_result) = next(iter(candidates.items()))
+
+                elif len((upstreams := {
+                    resp.upstream_proj if resp.upstream_proj is not None else resp.fork_proj
+                    for _, (_, resp)
+                    in results.items()
+                })) == 1:
+                    # we have multiple remotes, but exactly one of them is an upstream of all others
+                    fork_result = cls.maybe_fork(next(iter(upstreams)))
+                    for name, url in remotes.items():
+                        if fork_result.upstream_proj == url.proj():
+                            upstream_name, upstream_url = name, url
+                        elif fork_result.fork_proj == url.proj():
+                            fork_name, fork_url = name, url
+
+                else:
+                    die("No REPO specified, nor does `{}` or `{}` remote exist",
+                        fork_name, upstream_name)
 
             # find which urltype the user prefers
             urltype = next((
