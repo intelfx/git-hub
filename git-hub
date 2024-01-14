@@ -1344,6 +1344,10 @@ class SetupForkCmd (object):
                 **fetch.__dict__,
             )
 
+        # do the actual --triangular magic
+        if triangular:
+            git_config('remote.pushdefault', prefix='', value=fetch.target_name)
+
         git_config('urltype', value=fork.target_url.urltype())
         git_config('forkremote', value=fork.target_name)
         git_config('upstreamremote', value=upstream.target_name)
