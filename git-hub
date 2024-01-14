@@ -63,10 +63,11 @@ from typing import (
 )
 
 # Output levels according to user selected verbosity
-DEBUG = 3
-INFO  = 2
-WARN  = 1
-ERR   = 0
+class Verbosity(enum.IntEnum):
+    ERR = enum.auto()
+    WARN = enum.auto()
+    INFO = enum.auto()
+    DEBUG = enum.auto()
 
 
 # Output functions, all use the str.format() function for formatting
@@ -106,17 +107,17 @@ def pformat(obj):
     return pprint.pformat(obj, indent=4)
 
 def debugf(fmt='', *args, **kwargs):
-    if verbose < DEBUG:
+    if verbose < Verbosity.DEBUG:
         return
     localeprintf(sys.stdout, fmt, *args, **kwargs)
 
 def infof(fmt='', *args, **kwargs):
-    if verbose < INFO:
+    if verbose < Verbosity.INFO:
         return
     localeprintf(sys.stdout, fmt, *args, **kwargs)
 
 def warnf(fmt='', *args, **kwargs):
-    if verbose < WARN:
+    if verbose < Verbosity.WARN:
         return
     msg = ''
     if sys.stderr.isatty():
@@ -128,7 +129,7 @@ def warnf(fmt='', *args, **kwargs):
     sys.stderr.flush()
 
 def errf(fmt='', *args, **kwargs):
-    if verbose < ERR:
+    if verbose < Verbosity.ERR:
         return
     msg = ''
     if sys.stderr.isatty():
@@ -288,7 +289,7 @@ def git_check_version(min_version):
 # Same as git() but inserts --quiet at quiet_index if verbose is less than DEBUG
 def git_quiet(quiet_index, *args, **kwargs):
     args = args_to_list(args)
-    if verbose < DEBUG:
+    if verbose < Verbosity.DEBUG:
         args.insert(quiet_index, '--quiet')
     return git(*args, **kwargs)
 
@@ -745,7 +746,7 @@ class RequestManager:
         req.get_method = lambda: method.upper()
         debugf('{}', req.get_full_url())
         # Hide sensitive information from DEBUG output
-        if verbose >= DEBUG:
+        if verbose >= Verbosity.DEBUG:
             for h in req.header_items():
                 if h[0].lower() == 'authorization':
                     debugf('{}: {}', h[0], '<hidden>')
@@ -2813,13 +2814,13 @@ class HubCmd (CmdGroup):
 def main():
     global args, config, req, verbose
 
-    verbose = INFO
+    verbose = Verbosity.INFO
     config = Config()
 
     parser = argparse.ArgumentParser(
             description='Git command line interface to GitHub')
     parser.add_argument('--version', action='version', version=VERSION)
-    parser.add_argument('-v', '--verbose', action='count', default=INFO,
+    parser.add_argument('-v', '--verbose', action='count', default=Verbosity.INFO,
             help="be more verbose (can be specified multiple times to get "
             "extra verbosity)")
     parser.add_argument('-s', '--silent', action='count', default=0,
@@ -2831,7 +2832,9 @@ def main():
         args.unknown_args = unknown_args
     else:
         args = parser.parse_args()
-    verbose = args.verbose - args.silent
+
+    clamp = lambda arg, range: max(min(range), min(arg, max(range)))
+    verbose = Verbosity(clamp(args.verbose - args.silent, Verbosity))
 
     req = RequestManager(config.baseurl, config.oauthtoken)
 
@@ -2892,7 +2895,7 @@ if __name__ == '__main__':
     except GitError as error:
         errf('{} failed (return code: {})',
             ' '.join(error.cmd), error.returncode)
-        if verbose >= ERR:
+        if verbose >= Verbosity.ERR:
             sys.stderr.write(_decode(error.output) + '\n')
         sys.exit(7)
     except InterruptException as error:
