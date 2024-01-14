@@ -251,7 +251,7 @@ class GitError (subprocess.CalledProcessError):
 def args_to_list(args):
     if len(args) == 1:
         return args[0].split()
-    return list(args)
+    return list(map(str, args))
 
 # Run a git command returning its output (throws GitError on error)
 #
