@@ -2067,20 +2067,38 @@ class PullUtil (IssueUtil):
                 + branch_ref)
 
     @classmethod
+    def remote_default_branch(cls, remote):
+        try:
+            ns = f'refs/remotes/{remote}'
+            ref = git_quiet(1, 'symbolic-ref', f'{ns}/HEAD')
+            branch = ref.removeprefix(f'{ns}/')
+            if ref == branch:
+                warnf("The value of symbolic ref `{}` points outside of `{}` -- ignoring!",
+                      ref, ns)
+                return None
+        except GitError as e:
+            warnf("Could not query the default branch for `{}`: {}",
+                  remote, e.output)
+            return None
+
+        return branch
+
+    @classmethod
     def get_local_remote_heads(cls, parser, args):
         head_ref, head_name = cls.get_ref(args.head or 'HEAD')
         remote_head = args.create_branch or head_name
         if not remote_head:
             die("Can't guess remote branch name, please "
                 "use --create-branch to specify one")
-        base = args.base or cls.tracking_branch(head_name) or \
-                git_config('pullbase')
+        base = args.base \
+               or cls.remote_default_branch(config.upstreamremote) \
+               or git_config('pullbase')
         if base is None:
-            die('No base branch specified, you have to either use --base, have '
-                    'a tracking branch configured for the current branch or '
-                    'configure a default using `git config hub.pullbase` (to '
-                    're-enable the old global `master` default, use `git '
-                    'config --global hub.pullbase master`)')
+            die('No base branch specified or could be determined! '
+                'You have to either use --base, have a default branch configured '
+                'in the upstream repository or configure a default using '
+                '`git config hub.pullbase` (to re-enable the old global '
+                '`master` default, use `git config --global hub.pullbase master`)')
         gh_head = config.forkrepo.split('/')[0] + ':' + remote_head
         return head_ref, head_name, remote_head, base, gh_head
 
