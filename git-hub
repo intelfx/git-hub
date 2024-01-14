@@ -434,9 +434,9 @@ class GitURL:
             hostname, _ = hostname.split(':', maxsplit=1)
         if hostname not in cls.ACCEPTABLE_HOSTS:
             raise cls.Exception(f'Invalid GitHub URL: {url}')
-        # strip (and keep) trailing ".git"
+        # strip (and keep) trailing ".git" and/or "/"
         suffix = ''
-        if m := re.search(r'\.git/?$', path):
+        if (m := re.search(r'(\.git)?/?$', path)) and m.start() != m.end():
             suffix = m.group()
             path = path[:m.start()]
         # split and validate path
