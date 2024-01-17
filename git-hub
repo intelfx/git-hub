@@ -469,7 +469,7 @@ class GitURL:
     def _from_parts(cls, *, url: str, type: Type, scheme: Optional[str], netloc: str, path: str) -> Self:
         # validate scheme
         if type == cls.Type.URL and scheme not in cls.ACCEPTABLE_SCHEMES:
-            raise cls.Exception(f'Invalid GitHub URL: {url}')
+            raise cls.Exception(f'Invalid GitHub URL: {url} (scheme={scheme}, expected {cls.ACCEPTABLE_SCHEMES})')
         # extract and validate hostname
         hostname = netloc
         if '@' in hostname:
@@ -477,7 +477,7 @@ class GitURL:
         if ':' in hostname:
             hostname, _ = hostname.split(':', maxsplit=1)
         if hostname not in cls.ACCEPTABLE_HOSTS:
-            raise cls.Exception(f'Invalid GitHub URL: {url}')
+            raise cls.Exception(f'Invalid GitHub URL: {url} (hostname={hostname}, expected {cls.ACCEPTABLE_HOSTS})')
         # strip (and keep) trailing ".git" and/or "/"
         suffix = ''
         if (m := re.search(r'(\.git)?/?$', path)) and m.start() != m.end():
@@ -485,7 +485,7 @@ class GitURL:
             path = path[:m.start()]
         # split and validate path
         if path.count('/') != 1:
-            raise cls.Exception(f'Invalid GitHub URL: {url}')
+            raise cls.Exception(f'Invalid GitHub URL: {url} (path={path})')
         owner, project = path.split('/', maxsplit=1)
         return cls(
             type=type,
