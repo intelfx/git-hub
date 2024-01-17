@@ -573,7 +573,7 @@ class GitURL:
                 type=cls.Type.URL,
                 scheme=url.scheme,
                 netloc=url.netloc,
-                path=url.path,
+                path=url.path.lstrip('/'),
             )
         elif ':' in repo:
             netloc, path = repo.split(':', maxsplit=1)
