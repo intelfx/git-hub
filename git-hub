@@ -62,6 +62,17 @@ from typing import (
     Self,
 )
 
+
+# custom enum metaclass that implements `value in enum` as a lookup operation on pre-3.12
+class LookupEnumType(enum.EnumType):
+    def __contains__(cls, item):
+        try:
+            cls(item)
+        except ValueError:
+            return False
+        return True
+
+
 # Output levels according to user selected verbosity
 class Verbosity(enum.IntEnum):
     ERR = enum.auto()
@@ -398,7 +409,7 @@ class GitURL:
         URL = enum.auto()
         SSH = enum.auto()
 
-    class APIType(enum.StrEnum):
+    class APIType(enum.StrEnum, metaclass=LookupEnumType):
         CloneUrl = 'clone_url'
         GitUrl = 'git_url'
         SshUrl = 'ssh_url'
